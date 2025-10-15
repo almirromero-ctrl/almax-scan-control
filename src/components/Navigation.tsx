@@ -1,6 +1,7 @@
 import { LayoutDashboard, Package, ArrowLeftRight, QrCode } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import tecnotoolingLogo from "@/assets/tecnotooling-logo.png";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -16,9 +17,17 @@ export const Navigation = () => {
     <nav className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center space-x-2">
-            <QrCode className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold text-foreground">AlmoX</span>
+          <div className="flex items-center space-x-3">
+            <img 
+              src={tecnotoolingLogo} 
+              alt="Grupo Tecnotooling" 
+              className="h-8 w-auto object-contain"
+            />
+            <div className="h-8 w-px bg-border hidden sm:block"></div>
+            <div className="flex items-center space-x-2">
+              <QrCode className="h-6 w-6 text-primary" />
+              <span className="text-lg font-bold text-foreground">AlmoX</span>
+            </div>
           </div>
           
           <div className="hidden md:flex space-x-1">
