@@ -21,13 +21,8 @@ export const Navigation = () => {
             <img 
               src={tecnotoolingLogo} 
               alt="Grupo Tecnotooling" 
-              className="h-8 w-auto object-contain"
+              className="h-9 w-auto object-contain"
             />
-            <div className="h-8 w-px bg-border hidden sm:block"></div>
-            <div className="flex items-center space-x-2">
-              <QrCode className="h-6 w-6 text-primary" />
-              <span className="text-lg font-bold text-foreground">AlmoX</span>
-            </div>
           </div>
           
           <div className="hidden md:flex space-x-1">
