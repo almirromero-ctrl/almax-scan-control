@@ -4,8 +4,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { utils, writeFile } from "xlsx";
 import { toast } from "sonner";
+import { initialItems } from "@/data/items";
 
 type MovementType = "entrada" | "saida";
 
@@ -80,13 +85,51 @@ const mockMovements: Movement[] = [
 ];
 
 const Movements = () => {
-  const [movements] = useState(mockMovements);
+  const [movements, setMovements] = useState(mockMovements);
   const [activeTab, setActiveTab] = useState("todas");
+  const [isMovementDialogOpen, setIsMovementDialogOpen] = useState(false);
+  const [movementType, setMovementType] = useState<MovementType>("entrada");
+  const [movementForm, setMovementForm] = useState({
+    itemCode: "",
+    quantity: 0,
+    user: ""
+  });
 
   const filteredMovements = movements.filter(m => {
     if (activeTab === "todas") return true;
     return m.type === activeTab;
   });
+
+  const handleCreateMovement = () => {
+    const selectedItem = initialItems.find(item => item.code === movementForm.itemCode);
+    if (!selectedItem) {
+      toast.error("Item não encontrado!");
+      return;
+    }
+
+    const now = new Date();
+    const newMovement: Movement = {
+      id: Date.now().toString(),
+      itemName: selectedItem.name,
+      itemCode: selectedItem.code,
+      type: movementType,
+      quantity: movementForm.quantity,
+      unit: selectedItem.unit,
+      user: movementForm.user,
+      date: now.toISOString().split('T')[0],
+      time: now.toTimeString().slice(0, 5)
+    };
+
+    setMovements([newMovement, ...movements]);
+    toast.success(`${movementType === 'entrada' ? 'Entrada' : 'Saída'} registrada com sucesso!`);
+    setIsMovementDialogOpen(false);
+    setMovementForm({ itemCode: "", quantity: 0, user: "" });
+  };
+
+  const openMovementDialog = (type: MovementType) => {
+    setMovementType(type);
+    setIsMovementDialogOpen(true);
+  };
 
   const exportToExcel = () => {
     try {
@@ -107,16 +150,54 @@ const Movements = () => {
       const workbook = utils.book_new();
       utils.book_append_sheet(workbook, worksheet, 'Movimentações');
 
+      // Estilizar cabeçalho
+      const range = utils.decode_range(worksheet['!ref'] || 'A1');
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = utils.encode_cell({ r: 0, c: col });
+        if (!worksheet[cellAddress]) continue;
+        worksheet[cellAddress].s = {
+          font: { bold: true, color: { rgb: "FFFFFF" }, sz: 12 },
+          fill: { fgColor: { rgb: "2563EB" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+      }
+
+      // Aplicar cores nas linhas com base no tipo
+      for (let row = 1; row <= range.e.r; row++) {
+        const typeCell = worksheet[utils.encode_cell({ r: row, c: 2 })]; // Coluna "Tipo"
+        const isEntrada = typeCell?.v === 'Entrada';
+        
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = utils.encode_cell({ r: row, c: col });
+          if (!worksheet[cellAddress]) continue;
+          
+          worksheet[cellAddress].s = {
+            ...worksheet[cellAddress].s,
+            fill: { 
+              fgColor: { 
+                rgb: isEntrada ? "D1FAE5" : "FEE2E2" 
+              } 
+            },
+            border: {
+              top: { style: "thin", color: { rgb: "CCCCCC" } },
+              bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+              left: { style: "thin", color: { rgb: "CCCCCC" } },
+              right: { style: "thin", color: { rgb: "CCCCCC" } }
+            }
+          };
+        }
+      }
+
       // Ajustar largura das colunas
       const colWidths = [
         { wch: 12 },  // Código
-        { wch: 35 },  // Item
-        { wch: 10 },  // Tipo
-        { wch: 12 },  // Quantidade
-        { wch: 10 },  // Unidade
-        { wch: 20 },  // Responsável
-        { wch: 12 },  // Data
-        { wch: 8 }    // Hora
+        { wch: 40 },  // Item
+        { wch: 12 },  // Tipo
+        { wch: 14 },  // Quantidade
+        { wch: 12 },  // Unidade
+        { wch: 25 },  // Responsável
+        { wch: 14 },  // Data
+        { wch: 10 }   // Hora
       ];
       worksheet['!cols'] = colWidths;
 
@@ -125,7 +206,7 @@ const Movements = () => {
       const fileName = `registros-almax-${today}.xlsx`;
 
       // Download
-      writeFile(workbook, fileName);
+      writeFile(workbook, fileName, { cellStyles: true });
       
       toast.success('Arquivo Excel exportado com sucesso!');
     } catch (error) {
@@ -197,11 +278,11 @@ const Movements = () => {
               <p className="text-muted-foreground">Histórico de entradas e saídas do estoque</p>
             </div>
             <div className="flex gap-2">
-              <Button className="shadow-md">
+              <Button className="shadow-md" onClick={() => openMovementDialog("entrada")}>
                 <ArrowUpCircle className="h-4 w-4 mr-2" />
                 Nova Entrada
               </Button>
-              <Button variant="outline" className="shadow-sm">
+              <Button variant="outline" className="shadow-sm" onClick={() => openMovementDialog("saida")}>
                 <ArrowDownCircle className="h-4 w-4 mr-2" />
                 Nova Saída
               </Button>
@@ -284,6 +365,87 @@ const Movements = () => {
           </Tabs>
         </div>
       </div>
+
+      {/* Movement Dialog */}
+      <Dialog open={isMovementDialogOpen} onOpenChange={setIsMovementDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {movementType === "entrada" ? (
+                <span className="flex items-center gap-2 text-success">
+                  <ArrowUpCircle className="h-5 w-5" />
+                  Nova Entrada
+                </span>
+              ) : (
+                <span className="flex items-center gap-2 text-destructive">
+                  <ArrowDownCircle className="h-5 w-5" />
+                  Nova Saída
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Registre uma {movementType === "entrada" ? "entrada" : "saída"} de item no estoque
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="itemCode">Item</Label>
+              <Select
+                value={movementForm.itemCode}
+                onValueChange={(value) => setMovementForm({ ...movementForm, itemCode: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um item" />
+                </SelectTrigger>
+                <SelectContent>
+                  {initialItems.map((item) => (
+                    <SelectItem key={item.id} value={item.code}>
+                      {item.code} - {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="quantity">Quantidade</Label>
+              <Input
+                id="quantity"
+                type="number"
+                value={movementForm.quantity}
+                onChange={(e) => setMovementForm({ ...movementForm, quantity: Number(e.target.value) })}
+                min="1"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="user">Responsável</Label>
+              <Input
+                id="user"
+                value={movementForm.user}
+                onChange={(e) => setMovementForm({ ...movementForm, user: e.target.value })}
+                placeholder="Nome do responsável"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsMovementDialogOpen(false);
+                setMovementForm({ itemCode: "", quantity: 0, user: "" });
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCreateMovement}
+              disabled={!movementForm.itemCode || movementForm.quantity <= 0 || !movementForm.user}
+              className={movementType === "entrada" ? "bg-success hover:bg-success/90" : ""}
+            >
+              Registrar {movementType === "entrada" ? "Entrada" : "Saída"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
