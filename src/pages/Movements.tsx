@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { ArrowUpCircle, ArrowDownCircle, Calendar, User } from "lucide-react";
+import { ArrowUpCircle, ArrowDownCircle, Calendar, User, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { utils, writeFile } from "xlsx";
+import { toast } from "sonner";
 
 type MovementType = "entrada" | "saida";
 
@@ -86,6 +88,52 @@ const Movements = () => {
     return m.type === activeTab;
   });
 
+  const exportToExcel = () => {
+    try {
+      // Preparar dados para exportação
+      const exportData = movements.map(m => ({
+        'Código': m.itemCode,
+        'Item': m.itemName,
+        'Tipo': m.type === 'entrada' ? 'Entrada' : 'Saída',
+        'Quantidade': m.quantity,
+        'Unidade': m.unit,
+        'Responsável': m.user,
+        'Data': m.date,
+        'Hora': m.time
+      }));
+
+      // Criar planilha
+      const worksheet = utils.json_to_sheet(exportData);
+      const workbook = utils.book_new();
+      utils.book_append_sheet(workbook, worksheet, 'Movimentações');
+
+      // Ajustar largura das colunas
+      const colWidths = [
+        { wch: 12 },  // Código
+        { wch: 35 },  // Item
+        { wch: 10 },  // Tipo
+        { wch: 12 },  // Quantidade
+        { wch: 10 },  // Unidade
+        { wch: 20 },  // Responsável
+        { wch: 12 },  // Data
+        { wch: 8 }    // Hora
+      ];
+      worksheet['!cols'] = colWidths;
+
+      // Gerar nome do arquivo com data
+      const today = new Date().toISOString().split('T')[0];
+      const fileName = `registros-almax-${today}.xlsx`;
+
+      // Download
+      writeFile(workbook, fileName);
+      
+      toast.success('Arquivo Excel exportado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+      toast.error('Erro ao exportar arquivo Excel');
+    }
+  };
+
   const MovementCard = ({ movement }: { movement: Movement }) => {
     const isEntrada = movement.type === "entrada";
     
@@ -156,6 +204,14 @@ const Movements = () => {
               <Button variant="outline" className="shadow-sm">
                 <ArrowDownCircle className="h-4 w-4 mr-2" />
                 Nova Saída
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="shadow-sm"
+                onClick={exportToExcel}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Excel
               </Button>
             </div>
           </div>
